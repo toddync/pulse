@@ -1,0 +1,23 @@
+export function w $main() {            # Main function
+@start
+	%r =l call $add(l 1, l 1)
+	call $printf(l $fmt, ..., l %r)
+
+	%r =l alloc8 16                    # r = []
+	storel 43,  %r                     # r[0] <- 43
+	%v1 =l loadl  %r                   # %v1 <- r[0] as word
+	call $printf(l $num, ..., d 13)
+	call $printf(l $nl)
+	
+	ret 0
+}
+
+function l $add(l %a, l %b) {          # Define a function add
+@start
+	%c =l add %a, %b                   # Adds the 2 arguments
+	ret %c                             # Return the result
+}
+
+data $fmt = { b "One and one make %d!\n", b 0 }
+data $num = {b "%f", b 0}
+data $nl = {b "\n", b 0}
