@@ -1,48 +1,7 @@
 use regex::Regex;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub value: String,
-}
+use super::types::{Token, TokenKind};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenKind {
-    //* variables, reserved words and chars
-    Identifier,
-    Semicolon,
-    Delimiter,
-    Keyword,
-    Comma,
-
-    //* literals
-    String,
-    Number,
-    Float,
-    Bool,
-
-    //* math
-    Operator,
-
-    //* assignment
-    OpAssign,
-    Assign,
-
-    //* logic
-    // NotEqual,
-    // Greater,
-    // GtEqual,
-    // Smaller,
-    // SmEqual,
-    Equal,
-    Not,
-    And,
-    Or,
-
-    //* others
-    EOF,
-    Nl,
-}
 
 pub fn lexer(source: &str) -> Vec<Token> {
     let pattern = r#"([a-zA-Z#_,@]+[a-zA-Z0-9#_,@]*|\d+\.\d+|\d+|[&"'+\-*!/=><();{}\s])"#;
