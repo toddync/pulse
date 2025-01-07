@@ -1,15 +1,12 @@
 use crate::ast::types::{Expr, Operator};
 
-// use std::collections::HashMap;
-// static mut vars: HashMap<String, bool> = HashMap::new();
-
 pub fn rust(ast: &[Expr]) -> String {
     format!("\n
 fn main() {{
 {}
 }}
 
-fn print(list: &[Value]) {{
+fn print(list: &[&Value]) {{
     for v in list {{
         print!(\"{{}} \", v.as_str())
     }}
@@ -28,8 +25,14 @@ pub fn ast_to_rust(ast: &[Expr], lvl: i128) -> String {
 
 fn expr_to_rust(node: &Expr, lvl: i128) -> String {
     match node {
-        Expr::Assign { name, value, line: _}  => format!(
+        Expr::VarDec { name, value, line: _}  => format!(
             "{}let mut {} = {};\n",
+            indent(lvl),
+            name,
+            expr_to_rust(value, lvl+1)
+        ),
+        Expr::Assign { name, value, line: _}  => format!(
+            "{}{} = {};\n",
             indent(lvl),
             name,
             expr_to_rust(value, lvl+1)
@@ -49,14 +52,21 @@ fn expr_to_rust(node: &Expr, lvl: i128) -> String {
             ast_to_rust(body, lvl+1),
             indent(lvl)
         ),
+        Expr::While { condition, body } => format!(
+            "\n{}while {}.as_bool() {{\n{}{}}}\n\n",
+            indent(lvl),
+            expr_to_rust(condition, lvl),
+            ast_to_rust(body, lvl+1),
+            indent(lvl)
+        ),
 
         Expr::FnCall { name, params } => format!(
-            "{}{}(&vec![{}]);\n\n",
+            "{}{}(&vec![{}]);\n",
             indent(lvl),
             name,
             params
                 .into_iter()
-                .map(|param| expr_to_rust(param, lvl))
+                .map(|param| format!("&{}", expr_to_rust(param, lvl)))
                 .collect::<Vec<_>>()
                 .join(", ")
             ),

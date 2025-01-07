@@ -25,6 +25,11 @@ pub enum Expr {
         right: Box<Expr>,
     },
 
+    VarDec {
+        name: String,
+        value: Box<Expr>,
+        line: usize,
+    },
     Assign {
         name: String,
         value: Box<Expr>,

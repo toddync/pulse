@@ -1,7 +1,5 @@
 use crate::ast::{passers::fold::fold, types::Expr};
-use std::collections::HashMap;
-
-pub type SymbolTable = HashMap<String, (Expr, usize)>;
+use super::SymbolTable;
 
 pub fn pass(ast: &mut [Expr], memo: &mut SymbolTable){  
     for i in 0..ast.len() {
