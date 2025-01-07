@@ -1,24 +1,64 @@
-
+#![allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Variable(String),
     String(String),
     Not(Box<Expr>),
-    Number(i64),
+    Number(i128),
     Float(f64),
     Bool(bool),
+    Empty(),
+    Variable {
+        name: String,
+        line: usize,
+    },
+
+    Range {
+        iterator: Box<Expr>, 
+        start: Box<Expr>,
+        end: Box<Expr>,
+        step: i128
+    },
+
     BinaryOp {
         left: Box<Expr>,
         op: Operator,
         right: Box<Expr>,
     },
+
     Assign {
         name: String,
-        value: Box<Expr>
+        value: Box<Expr>,
+        line: usize,
     },
+
     If {
         condition: Box<Expr>,
-        body: Vec<Expr>
+        body: Vec<Expr>,
+    },
+    
+    Else {
+        body: Vec<Expr>,
+    },
+
+    ElIf {
+        condition: Box<Expr>,
+        valid: Vec<Expr>,
+        invalid: Vec<Expr>,
+    },
+
+    FnCall {
+        name: String,
+        params: Vec<Expr>,
+    },
+
+    For {
+        domain: Box<Expr>,
+        body: Vec<Expr>,
+    },
+
+    While {
+        condition: Box<Expr>,
+        body: Vec<Expr>,
     }
 }
 
@@ -72,15 +112,15 @@ pub enum TokenKind {
     Assign,
 
     //* logic
-    // NotEqual,
-    // Greater,
-    // GtEqual,
-    // Smaller,
-    // SmEqual,
     Equal,
     Not,
     And,
     Or,
+
+    //* Dots, by quantity
+    Dot,
+    Range,
+    Spread,
 
     //* others
     EOF,
