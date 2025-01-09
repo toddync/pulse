@@ -1,24 +1,23 @@
 #![allow(non_snake_case)]
-use std::collections::HashMap;
 use super::types::Expr;
+use std::collections::HashMap;
 
-type SymbolTable = HashMap<String, (Expr, usize)>;
-type TrackTable = HashMap<String, bool>;
+type TrackTable<T> = HashMap<String, T>;
 
 mod If;
-mod subs;
-mod fold;
-mod unwrap;
 mod cleanup;
+mod fold;
+mod subs;
+mod unwrap;
 mod variables;
 
-pub fn run(ast: &mut Vec<Expr>) {
+pub fn pass(ast: &mut Vec<Expr>) {
     fold::pass(ast);
     If::pass(ast);
-    subs::pass(ast, &mut SymbolTable::new());
+    subs::pass(ast, &mut HashMap::new());
     unwrap::pass(ast);
-    subs::pass(ast, &mut SymbolTable::new());
-    variables::pass(ast, &mut TrackTable::new());
+    subs::pass(ast, &mut HashMap::new());
+    variables::pass(ast, &mut HashMap::new());
 
-    cleanup::pass(ast, &mut TrackTable::new());
+    cleanup::pass(ast, &mut HashMap::new());
 }

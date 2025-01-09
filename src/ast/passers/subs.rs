@@ -1,36 +1,59 @@
+use super::TrackTable;
 use crate::ast::{passers::fold::fold, types::Expr};
-use super::SymbolTable;
+use std::collections::HashMap;
 
-pub fn pass(ast: &mut [Expr], memo: &mut SymbolTable){  
-    for i in 0..ast.len() {
-        match  ast[i].to_owned() {
-            Expr::Assign { name, mut value, line} => {
+pub fn pass(ast: &mut [Expr], memo: &mut TrackTable<Expr>) {
+    for node in ast {
+        match node.clone() {
+            Expr::Assign {
+                name,
+                mut value,
+                line,
+            } => {
                 subs(&mut value, memo);
                 value = Box::new(fold(&value));
 
                 if is_literal(&value) {
-                    memo.insert(name.clone(), (*value.clone(), line));
+                    memo.insert(name.clone(), *value.clone());
                 }
 
-                ast[i] = Expr::Assign { name, value, line }
-            },
-            Expr::ElIf { mut condition, mut valid, mut invalid } => {
+                *node = Expr::Assign {
+                    name: name.to_string(),
+                    line,
+                    value,
+                }
+            }
+            Expr::ElIf {
+                mut condition,
+                mut valid,
+                mut invalid,
+            } => {
                 subs(&mut condition, memo);
                 condition = Box::new(fold(&condition));
 
                 pass(&mut valid, memo);
                 pass(&mut invalid, memo);
 
-                *memo = SymbolTable::new();
+                *memo = HashMap::new();
 
-                ast[i] = Expr::ElIf { condition, valid, invalid }
-            },
-            Expr::If { mut condition, body } => {
+                *node = Expr::ElIf {
+                    condition,
+                    valid,
+                    invalid,
+                }
+            }
+            Expr::If {
+                mut condition,
+                body,
+            } => {
                 subs(&mut condition, memo);
                 condition = Box::new(fold(&condition));
 
-                ast[i] = Expr::If { condition, body }
-            },
+                *node = Expr::If {
+                    condition,
+                    body: body.to_vec(),
+                }
+            }
 
             Expr::FnCall { name, mut params } => {
                 params = params
@@ -41,7 +64,10 @@ pub fn pass(ast: &mut [Expr], memo: &mut SymbolTable){
                     })
                     .collect::<Vec<Expr>>();
 
-                ast[i] = Expr::FnCall { name, params }
+                *node = Expr::FnCall {
+                    name: name.to_string(),
+                    params,
+                }
             }
             _ => {}
         }
@@ -49,28 +75,27 @@ pub fn pass(ast: &mut [Expr], memo: &mut SymbolTable){
 }
 
 fn is_literal(expr: &Expr) -> bool {
-    match expr {
-        Expr::Number(_) => true,
-        Expr::String(_) => true,
-        Expr::Float(_) => true,
-        Expr::Bool(_) => true,
-        _ => false
-    }
+    matches!(
+        expr,
+        Expr::Number(_) | Expr::String(_) | Expr::Float(_) | Expr::Bool(_)
+    )
 }
 
-fn subs(expr: &mut Expr, memo: &SymbolTable) {
+fn subs(expr: &mut Expr, memo: &TrackTable<Expr>) {
     match expr.to_owned() {
-        Expr::BinaryOp { mut left, op, mut right } => {
+        Expr::BinaryOp {
+            mut left,
+            op,
+            mut right,
+        } => {
             subs(&mut left, memo);
             subs(&mut right, memo);
             *expr = Expr::BinaryOp { left, op, right };
-        },
-        Expr::Variable { name, line } => {
+        }
+        Expr::Variable(name) => {
             if memo.contains_key(&name) {
-                let (val, tl) = memo.get(&name).unwrap().to_owned();
-                if tl >= line {
-                    *expr = val;
-                }
+                let val = memo.get(&name).unwrap().to_owned();
+                *expr = val;
             }
         }
         _ => {}

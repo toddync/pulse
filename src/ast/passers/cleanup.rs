@@ -1,65 +1,100 @@
-use crate::ast::types::Expr;
-use super::TrackTable;
+use std::collections::HashMap;
 
-pub fn pass(ast: &mut Vec<Expr>, memo: &mut TrackTable){  
+use super::TrackTable;
+use crate::ast::types::Expr;
+
+pub fn pass(ast: &mut [Expr], memo: &mut TrackTable<usize>) {
     let mut i = 0;
     while i < ast.len() - 1 {
-        match  ast[i].to_owned() {
-            Expr::Assign { name, value, line: _} | Expr::VarDec { name, value, line: _} => {
-                match memo.get(&name) {
-                    Some(_) => { },
-                    None => { memo.insert(name.clone(), false); }
-                };
+        match ast[i].to_owned() {
+            Expr::VarDec {
+                name,
+                value,
+                line: _,
+            } => {
+                memo.insert(name, i);
                 sniff(&value, memo);
-            },
-            Expr::ElIf { condition, mut valid, mut invalid } => {
+            }
+            Expr::Assign {
+                name,
+                value,
+                line: _,
+            } => {
+                if let Some(x) = memo.get(&name) {
+                    ast[*x] = Expr::Empty();
+                    memo.remove(&name);
+                }
+
+                memo.insert(name.clone(), i);
+                sniff(&value, memo);
+            }
+            Expr::ElIf {
+                condition,
+                mut valid,
+                mut invalid,
+            } => {
                 sniff(&condition, memo);
-                pass(&mut valid, memo);
-                pass(&mut invalid, memo);
-            },
-            Expr::If { condition, mut body } => {
+                pass(&mut valid, &mut HashMap::new());
+                pass(&mut invalid, &mut HashMap::new());
+            }
+            Expr::If {
+                condition,
+                mut body,
+            } => {
+                sniff(&condition, memo);
+                pass(&mut body, &mut HashMap::new());
+            }
+            Expr::While {
+                condition,
+                mut body,
+            } => {
                 sniff(&condition, memo);
                 pass(&mut body, memo);
-            },
-            Expr::While { condition, mut body } => {
-                sniff(&condition, memo);
-                pass(&mut body, memo);
-            },
+            }
             Expr::FnCall { name: _, params } => {
                 for param in params {
                     sniff(&param, memo)
                 }
-            },
-            Expr::Empty() => { ast.remove(i); continue },
-            _ => { }
+            }
+            _ => {}
         }
-        i +=1 ;
+        i += 1;
     }
 
     i = 0;
     while i < ast.len() - 1 {
-        match  ast[i].to_owned() {
-            Expr::Assign { name, value: _, line: _ } | Expr::VarDec { name, value: _, line: _ } => {
-                match memo.get(&name) {
-                    Some(x) => if !x { ast.remove(i); continue },
-                    None => { }
-                };
-            },
-            _ => { }
+        match ast[i].to_owned() {
+            Expr::Assign {
+                name,
+                value: _,
+                line: _,
+            }
+            | Expr::VarDec {
+                name,
+                value: _,
+                line: _,
+            } => {
+                if let Some(x) = memo.get(&name) {
+                    if *x <= i {
+                        ast[i] = Expr::Empty();
+                    }
+                }
+            }
+            _ => {}
         };
-        i +=1 ;
+        i += 1;
     }
 }
 
-fn sniff(expr: &Expr, memo: &mut TrackTable) {
+fn sniff(expr: &Expr, memo: &mut TrackTable<usize>) {
     match expr.to_owned() {
         Expr::BinaryOp { left, op: _, right } => {
             sniff(&left, memo);
             sniff(&right, memo);
         }
-        Expr::Variable { name, line: _ } => {
-            memo.insert(name.clone(), true);
+        Expr::Variable(name) => {
+            memo.remove(&name);
         }
-        _ => { }
+        _ => {}
     }
 }

@@ -7,16 +7,13 @@ pub enum Expr {
     Float(f64),
     Bool(bool),
     Empty(),
-    Variable {
-        name: String,
-        line: usize,
-    },
+    Variable(String),
 
     Range {
-        iterator: Box<Expr>, 
+        iterator: Box<Expr>,
         start: Box<Expr>,
         end: Box<Expr>,
-        step: i128
+        step: i128,
     },
 
     BinaryOp {
@@ -40,7 +37,7 @@ pub enum Expr {
         condition: Box<Expr>,
         body: Vec<Expr>,
     },
-    
+
     Else {
         body: Vec<Expr>,
     },
@@ -64,7 +61,13 @@ pub enum Expr {
     While {
         condition: Box<Expr>,
         body: Vec<Expr>,
-    }
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RpnExpr {
+    Basic(String),
+    Complex(Expr),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,13 +91,13 @@ pub enum Operator {
     Or,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     //* variables, reserved words and chars
     Identifier,
@@ -128,6 +131,6 @@ pub enum TokenKind {
     Spread,
 
     //* others
-    EOF,
+    Eof,
     Nl,
 }

@@ -34,9 +34,11 @@ impl Value {
     pub fn as_bool(&self) -> bool {
         match self {
             Value::Number(a) => self.as_int().unwrap() != 0,
-            Value::Float(a) => self.as_flt().unwrap() > f64::from(0) || self.as_flt().unwrap() < f64::from(0),
-            Value::Bool(a)=> a == &true,
-            Value::String(a)=> a.len() > 0,
+            Value::Float(a) => {
+                self.as_flt().unwrap() > f64::from(0) || self.as_flt().unwrap() < f64::from(0)
+            }
+            Value::Bool(a) => a == &true,
+            Value::String(a) => !a.is_empty(),
             _ => false,
         }
     }
@@ -45,9 +47,9 @@ impl Value {
         match self {
             Value::Number(a) => format!("{}", a),
             Value::Float(a) => format!("{}", a),
-            Value::Bool(a)=> format!("{}", a),
-            Value::String(a)=> format!("{}", a),
-            _ => format!(""),
+            Value::Bool(a) => format!("{}", a),
+            Value::String(a) => a.to_string(),
+            _ => "".to_string(),
         }
     }
 
@@ -105,30 +107,34 @@ impl Value {
 
     pub fn gt(&self, other: &Value) -> Value {
         match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() > other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() > other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool(a.to_owned() as f64 > other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() > other.as_flt().unwrap()),
+            (Value::Number(a), Value::Number(b)) => Value::Bool(*a > other.as_int().unwrap()),
+            (Value::Float(a), Value::Float(b)) => Value::Bool(*a > other.as_flt().unwrap()),
+            (Value::Number(a), Value::Float(b)) => Value::Bool(*a as f64 > other.as_flt().unwrap()),
+            (Value::Float(a), Value::Number(b)) => Value::Bool(*a > other.as_flt().unwrap()),
             _ => Value::Undefined,
         }
     }
 
     pub fn lt(&self, other: &Value) -> Value {
         match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() < other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() < other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool((a.to_owned() as f64) < other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() < other.as_flt().unwrap()),
+            (Value::Number(a), Value::Number(b)) => Value::Bool(*a < other.as_int().unwrap()),
+            (Value::Float(a), Value::Float(b)) => Value::Bool(*a < other.as_flt().unwrap()),
+            (Value::Number(a), Value::Float(b)) => {
+                Value::Bool((*a as f64) < other.as_flt().unwrap())
+            }
+            (Value::Float(a), Value::Number(b)) => Value::Bool(*a < other.as_flt().unwrap()),
             _ => Value::Undefined,
         }
     }
 
     pub fn eq(&self, other: &Value) -> Value {
         match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() == other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() == other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool(a.to_owned() as f64 == other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() == other.as_flt().unwrap()),
+            (Value::Number(a), Value::Number(b)) => Value::Bool(*a == other.as_int().unwrap()),
+            (Value::Float(a), Value::Float(b)) => Value::Bool(*a == other.as_flt().unwrap()),
+            (Value::Number(a), Value::Float(b)) => {
+                Value::Bool(*a as f64 == other.as_flt().unwrap())
+            }
+            (Value::Float(a), Value::Number(b)) => Value::Bool(*a == other.as_flt().unwrap()),
             _ => Value::Undefined,
         }
     }
@@ -144,13 +150,13 @@ impl Value {
     pub fn and(&self, other: &Value) -> Value {
         match self.as_bool() {
             true => Value::Bool(other.as_bool()),
-            false => Value::Bool(false)
+            false => Value::Bool(false),
         }
     }
 }
 
 pub static VALUE: &str = r#"#![allow(warnings)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(i64),
     Float(f64),

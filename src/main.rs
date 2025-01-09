@@ -1,5 +1,8 @@
-use std::{fs, time::{SystemTime, UNIX_EPOCH}};
 use clap::Parser;
+use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 mod ast;
 mod generate;
@@ -34,7 +37,7 @@ fn main() {
     let code = generate::rust(&ast);
     fs::write(&args.output, format!("{}{}", VALUE, code)).unwrap();
     println!("Code saved to {}", args.output);
-    
+
     let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap() - start;
     println!("\n{:#?}\n", ast);
     println!("time: {:?}", time);
