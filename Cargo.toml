@@ -1,8 +1,7 @@
 [package]
 name = "pulse"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.23", features = ["derive"] }
-regex = "1.11.1"
+chumsky = "1.0.0-alpha.8"
