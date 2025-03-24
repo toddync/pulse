@@ -1,8 +1,50 @@
-let five = 5
+// Variable declarations
+let five = 5;
 let eight = 3 + five;
-3 + five
 
-fn add(x, y) {
-    x + y;
+// Function definitions
+fn add(x, y) = x + y;
+fn multiply(x, y) {
+    x * y;
 }
-add(five, eight);
+
+// Function calls
+add(5, 3);
+multiply(2, 4);
+
+// If statements (block and single-line)
+let result;
+if (five == 1) {
+    result = add(five, eight);
+}
+
+if (five == 1) result + eight;
+
+if (five == 1)
+    multiply(five, eight);
+
+// Nested if statements
+if (five > 0) {
+    if (eight < 10) {
+        let sum = add(five, eight);
+    }
+}
+
+// Else statements
+if (five == 1) {
+    result = 10;
+} else {
+    result = 20;
+}
+
+if (five == 1) {
+    result = 10;
+} else;
+
+// Arithmetic expressions
+let sum = 5 + 3 * 2 - 4 / 2;
+let negative = -five;
+
+// Function return values
+fn square(x) = x * x;
+square(4);
