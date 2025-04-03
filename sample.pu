@@ -48,3 +48,6 @@ let negative = -five;
 // Function return values
 fn square(x) = x * x;
 square(4);
+
+// Loops Structures
+while(2 > 1) { }

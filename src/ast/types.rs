@@ -1,7 +1,8 @@
 #[allow(warnings)]
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr<'a> {
-    Comment,
+    Comment(String),
+    Nl,
     Undefined,
     Num(f64),
     Var(&'a str),
@@ -14,45 +15,25 @@ pub enum Expr<'a> {
     Mul(Box<Expr<'a>>, Box<Expr<'a>>),
     Div(Box<Expr<'a>>, Box<Expr<'a>>),
 
+    And(Box<Expr<'a>>, Box<Expr<'a>>),
+    Or(Box<Expr<'a>>, Box<Expr<'a>>),
+
     Eq(Box<Expr<'a>>, Box<Expr<'a>>),
     Neq(Box<Expr<'a>>, Box<Expr<'a>>),
-
     Gt(Box<Expr<'a>>, Box<Expr<'a>>),
     Gte(Box<Expr<'a>>, Box<Expr<'a>>),
-
     Lt(Box<Expr<'a>>, Box<Expr<'a>>),
     Lte(Box<Expr<'a>>, Box<Expr<'a>>),
 
-    Let {
-        name: &'a str,
-        rhs: Box<Expr<'a>>,
-    },
-    Assign {
-        name: &'a str,
-        rhs: Box<Expr<'a>>,
-    },
+    Let(&'a str, Box<Expr<'a>>),
+    Assign(&'a str, Box<Expr<'a>>),
 
-    Fn {
-        name: &'a str,
-        args: Vec<&'a str>,
-        body: Vec<Expr<'a>>,
-    },
+    Fn(&'a str, Vec<&'a str>, Vec<Expr<'a>>),
     Return(Box<Expr<'a>>),
     Call(&'a str, Vec<Expr<'a>>),
 
-    If {
-        condition: Box<Expr<'a>>,
-        body: Vec<Expr<'a>>,
-    },
+    If(Box<Expr<'a>>, Vec<Expr<'a>>),
+    IfElse(Box<Expr<'a>>, Vec<Expr<'a>>, Vec<Expr<'a>>),
 
-    IfElse {
-        condition: Box<Expr<'a>>,
-        r#true: Vec<Expr<'a>>,
-        r#false: Vec<Expr<'a>>,
-    },
-
-    While {
-        condition: Box<Expr<'a>>,
-        body: Vec<Expr<'a>>,
-    },
+    While(Box<Expr<'a>>, Vec<Expr<'a>>),
 }

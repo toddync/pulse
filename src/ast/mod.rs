@@ -6,17 +6,18 @@ pub mod types;
 #[allow(clippy::let_and_return)]
 pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
     let ident = text::ascii::ident()
-        .and_is(text::keyword("fn").not())
-        .and_is(text::keyword("let").not())
-        .and_is(text::keyword("if").not())
-        .and_is(text::keyword("else").not())
+        .and_is(just("let").not())
+        .and_is(just("fn").not())
+        .and_is(just("return").not())
+        .and_is(just("if").not())
+        .and_is(just("else").not())
+        .and_is(just("while").not())
         .padded();
 
     let simple = recursive(|simple| {
         let int = text::int(10).map(|s: &str| Expr::Num(s.parse().unwrap()));
 
         let call = ident
-            .clone()
             .then(
                 simple
                     .clone()
@@ -30,10 +31,10 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
         let atom = int
             .or(simple.delimited_by(just('('), just(')')))
             .or(call)
-            .or(ident.clone().map(Expr::Var))
-            .padded();
+            .or(ident.map(Expr::Var))
+            .padded_by(text::inline_whitespace());
 
-        let op = |c: String| just(c).padded();
+        let op = |c: String| just(c).padded_by(text::inline_whitespace());
 
         let unary = op("-".to_string())
             .repeated()
@@ -42,7 +43,17 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
                 .repeated()
                 .foldr(atom.clone(), |_op, rhs| Expr::Not(Box::new(rhs))));
 
-        let product = unary.clone().foldl(
+        let and_or = unary.clone().foldl(
+            choice((
+                op("&&".to_string()).to(Expr::And as fn(_, _) -> _),
+                op("||".to_string()).to(Expr::Or as fn(_, _) -> _),
+            ))
+            .then(unary.clone())
+            .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
+
+        let product = and_or.clone().foldl(
             choice((
                 op("*".to_string()).to(Expr::Mul as fn(_, _) -> _),
                 op("/".to_string()).to(Expr::Div as fn(_, _) -> _),
@@ -76,10 +87,16 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
             |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
         );
 
-        cmp.padded()
+        cmp.padded_by(text::inline_whitespace()).boxed()
     });
 
     let complex = recursive(|complex| {
+        let stmt_term = choice((
+            text::newline(),
+            just(';').to(()),
+            chumsky::primitive::end().rewind().to(()),
+        ));
+
         let block = complex
             .clone()
             .then_ignore(just(';').or_not())
@@ -88,41 +105,33 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
             .padded()
             .delimited_by(just('{'), just('}'))
             .or_not()
-            .then_ignore(just(';').or_not());
+            .padded_by(text::inline_whitespace());
 
         let r#let = text::ascii::keyword("let")
-            .ignore_then(ident.clone())
+            .ignore_then(ident)
             .then(choice((
                 just('=').ignore_then(simple.clone()),
-                just(';').map(|_| Expr::Undefined),
+                (any().rewind()).map(|_| Expr::Undefined),
             )))
-            .then_ignore(just(';').or_not())
-            .map(|(name, rhs)| Expr::Let {
-                name,
-                rhs: Box::new(rhs),
-            });
+            .map(|(name, rhs)| Expr::Let(name, Box::new(rhs)));
 
         let assign = ident
-            .clone()
             .then_ignore(just('='))
             .then(simple.clone())
-            .map(|(name, rhs)| Expr::Assign {
-                name,
-                rhs: Box::new(rhs),
-            });
+            .map(|(name, rhs)| Expr::Assign(name, Box::new(rhs)));
 
         let r#fn = text::ascii::keyword("fn")
-            .ignore_then(ident.clone().padded())
+            .ignore_then(ident)
             .then(
                 ident
-                    .clone()
                     .separated_by(just(','))
                     .allow_trailing()
                     .collect::<Vec<_>>()
                     .delimited_by(just('('), just(')')),
             )
+            .padded_by(text::inline_whitespace())
             .then(choice((
-                just('=').padded().ignore_then(
+                just('=').ignore_then(
                     simple
                         .clone()
                         .map(|s| Some(vec![Expr::Return(Box::new(s))])),
@@ -130,11 +139,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
                 block.clone(),
             )))
             .then_ignore(just(';').or_not())
-            .map(|((name, args), body)| Expr::Fn {
-                name,
-                args,
-                body: body.unwrap_or(vec![]),
-            });
+            .map(|((name, args), body)| Expr::Fn(name, args, body.unwrap_or_else(Vec::new)));
+
+        let r#return = text::ascii::keyword("return")
+            .padded_by(text::inline_whitespace())
+            .ignore_then(simple.clone())
+            .map(|val| Expr::Return(Box::new(val)));
 
         let r#if = text::ascii::keyword("if")
             .ignore_then(simple.clone())
@@ -143,46 +153,66 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Expr<'a>>> {
                 block.clone(),
             )))
             .then_ignore(just(';').or_not())
-            .map(|(condition, body)| Expr::If {
-                condition: Box::new(condition),
-                body: body.unwrap_or_else(Vec::new),
-            });
+            .map(|(condition, body)| Expr::If(Box::new(condition), body.unwrap_or_else(Vec::new)));
 
         let ifelse = text::ascii::keyword("if")
             .ignore_then(simple.clone())
             .then(choice((
-                complex.clone().map(|s| Some(vec![s])),
+                complex
+                    .clone()
+                    .map(|s| Some(vec![s]))
+                    .then_ignore(just(';').or_not()),
                 block.clone(),
             )))
-            .then_ignore(just(';').or_not())
             .then_ignore((text::ascii::keyword("else")).padded())
             .then(choice((
                 complex.clone().map(|s| Some(vec![s])),
                 block.clone(),
             )))
             .then_ignore(just(';').or_not())
-            .map(|((a, b), c)| Expr::IfElse {
-                condition: Box::new(a),
-                r#true: b.unwrap_or_else(Vec::new),
-                r#false: c.unwrap_or_else(Vec::new),
+            .map(|((condition, valid), invalid)| {
+                Expr::IfElse(
+                    Box::new(condition),
+                    valid.unwrap_or_else(Vec::new),
+                    invalid.unwrap_or_else(Vec::new),
+                )
+            });
+
+        let r#while = text::ascii::keyword("while")
+            .ignore_then(simple.clone())
+            .then(choice((
+                complex.clone().map(|s| Some(vec![s])),
+                block.clone(),
+            )))
+            .then_ignore(just(';').or_not())
+            .map(|(condition, body)| {
+                Expr::While(Box::new(condition), body.unwrap_or_else(Vec::new))
             });
 
         let comment = choice((
-            just("/*").then(any().and_is(just("*/").not()).repeated()),
-            just("//").then(any().and_is(just('\n').not()).repeated()),
+            just("/*").ignore_then(
+                any()
+                    .and_is(just("*/").not())
+                    .repeated()
+                    .collect()
+                    .then_ignore(just("*/")),
+            ),
+            just("//").ignore_then(any().and_is(just('\n').not()).repeated().collect()),
         ))
-        .ignored()
-        .map(|_| Expr::Comment);
+        .map(Expr::Comment);
 
         comment
             .or(r#let)
             .or(assign)
+            .or(r#while)
             .or(ifelse)
             .or(r#if)
             .or(r#fn)
-            .or(simple.then_ignore(just(';').or_not()))
-            .padded()
+            .or(r#return)
+            .or(simple)
+            .then_ignore(stmt_term)
+            .boxed()
     });
 
-    complex.repeated().collect()
+    complex.padded().repeated().collect()
 }
