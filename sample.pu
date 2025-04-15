@@ -1,53 +1,84 @@
-// Variable declarations
+// --- Variable Declarations ---
 let five = 5;
-let eight = 3 + five;
+let eight = 8;
+let ten = 10;
 
-// Function definitions
+// --- Function Definitions ---
+// Expression-bodied function (one-liner)
 fn add(x, y) = x + y;
+
+// Block-bodied function with an explicit return (more flexible for complex logic)
 fn multiply(x, y) {
-    x * y;
+    return x * y;
 }
 
-// Function calls
-add(5, 3);
-multiply(2, 4);
+// A function using block body with local variable and computation
+fn square(x) {
+    let result = x * x;
+    return result;
+}
 
-// If statements (block and single-line)
+// --- Function Calls ---
+// Test simple addition and multiplication
+let sum1 = add(5, 3);
+let product1 = multiply(2, 4);
+let squared = square(4);
+
+// --- Conditional Statements ---
+// Simple if with block
 let result;
 if (five == 1) {
     result = add(five, eight);
+} else {
+    // Using an else to cover the default case
+    result = ten - five;
 }
 
-if (five == 1) result + eight;
-
-if (five == 1)
-    multiply(five, eight);
+// One-line if statement (expression-style)
+if (five == 1) result = add(result, eight);
 
 // Nested if statements
 if (five > 0) {
     if (eight < 10) {
-        let sum = add(five, eight);
+        let nestedSum = add(five, eight);
     }
 }
 
-// Else statements
+// --- Else-If Chain ---
+// Testing multiple branches
 if (five == 1) {
     result = 10;
-} else {
+} else if (five == 5) {
     result = 20;
+} else {
+    result = 30;
+    result = 30;
+    result = 30;
+    result = 30;
 }
 
-if (five == 1) {
-    result = 10;
-} else;
-
-// Arithmetic expressions
-let sum = 5 + 3 * 2 - 4 / 2;
+// --- Arithmetic Expressions ---
+// Expression with multiple operators; note operator precedence
+let arithmetic = 5 + 3 * 2 - 4 / 2;
 let negative = -five;
 
-// Function return values
-fn square(x) = x * x;
-square(4);
+// --- Loops ---
+// A while loop that increments a counter until it reaches a limit
+let counter = 0;
+while (counter < 5) {
+    // Increment counter using the add function to test function calls inside loops
+    counter = add(counter, 1);
+}
 
-// Loops Structures
-while(2 > 1) { }
+// A loop with a single-line body for brevity
+while (counter > 0) counter = counter - 1;
+
+// --- Output Section ---
+// If your language supports output statements, display test results
+print(sum1);       // Expected output: 8
+print(product1);   // Expected output: 8
+print(squared);    // Expected output: 16
+print(result);     // Expected output depends on conditions (here: 20)
+print(arithmetic); // Expected output: 5 + (3*2)=6, then 6*? See arithmetic expression
+print(negative);   // Expected output: -5
+print(counter);    // Expected output: 0

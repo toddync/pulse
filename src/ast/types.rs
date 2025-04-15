@@ -1,39 +1,87 @@
-#[allow(warnings)]
+#![allow(warnings)]
+use chumsky::span::SimpleSpan;
+use core::fmt;
+use std::collections::HashMap;
+
+pub type Span = SimpleSpan;
+pub type Spanned<T> = (T, Span);
+pub type BSE<'a> = Box<Spanned<Expr<'a>>>;
+
 #[derive(Clone, Debug, PartialEq)]
-pub enum Expr<'a> {
-    Comment(String),
-    Nl,
+pub enum Value<'a> {
     Undefined,
     Num(f64),
+    Str(&'a str),
+    Vec(Vec<BSE<'a>>),
+    Obj(HashMap<&'a str, BSE<'a>>),
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum Op {
+    Error,
+
+    Not,
+    Neg,
+
+    Add,
+    Sub,
+    Mul,
+    Div,
+
+    And,
+    Or,
+
+    Eq,
+    Neq,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expr<'a> {
+    Error,
+    Comment(String),
+    Nl,
     Var(&'a str),
+    Val(Value<'a>),
 
-    Neg(Box<Expr<'a>>),
-    Not(Box<Expr<'a>>),
+    UnOp(Op, BSE<'a>),
+    BnOp(BSE<'a>, Op, BSE<'a>),
 
-    Add(Box<Expr<'a>>, Box<Expr<'a>>),
-    Sub(Box<Expr<'a>>, Box<Expr<'a>>),
-    Mul(Box<Expr<'a>>, Box<Expr<'a>>),
-    Div(Box<Expr<'a>>, Box<Expr<'a>>),
+    Let(&'a str, BSE<'a>),
+    Assign(&'a str, BSE<'a>),
 
-    And(Box<Expr<'a>>, Box<Expr<'a>>),
-    Or(Box<Expr<'a>>, Box<Expr<'a>>),
+    Block(Vec<BSE<'a>>),
 
-    Eq(Box<Expr<'a>>, Box<Expr<'a>>),
-    Neq(Box<Expr<'a>>, Box<Expr<'a>>),
-    Gt(Box<Expr<'a>>, Box<Expr<'a>>),
-    Gte(Box<Expr<'a>>, Box<Expr<'a>>),
-    Lt(Box<Expr<'a>>, Box<Expr<'a>>),
-    Lte(Box<Expr<'a>>, Box<Expr<'a>>),
+    Fn(&'a str, Vec<&'a str>, BSE<'a>),
+    Return(BSE<'a>),
+    Call(BSE<'a>, Vec<BSE<'a>>),
 
-    Let(&'a str, Box<Expr<'a>>),
-    Assign(&'a str, Box<Expr<'a>>),
+    If(BSE<'a>, BSE<'a>, BSE<'a>),
 
-    Fn(&'a str, Vec<&'a str>, Vec<Expr<'a>>),
-    Return(Box<Expr<'a>>),
-    Call(&'a str, Vec<Expr<'a>>),
+    While(BSE<'a>, BSE<'a>),
+}
 
-    If(Box<Expr<'a>>, Vec<Expr<'a>>),
-    IfElse(Box<Expr<'a>>, Vec<Expr<'a>>, Vec<Expr<'a>>),
+#[derive(Clone, Debug, PartialEq)]
+pub enum Tkn<'a> {
+    Number(f64),
+    Identifier(&'a str),
+    Delimiter(char),
+    Keyword(&'a str),
+    Symbol(&'a str),
+    Newline,
+}
 
-    While(Box<Expr<'a>>, Vec<Expr<'a>>),
+impl fmt::Display for Tkn<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Tkn::Number(n) => write!(f, "{}", n),
+            Tkn::Identifier(c) => write!(f, "{}", c),
+            Tkn::Delimiter(c) => write!(f, "{}", c),
+            Tkn::Keyword(c) => write!(f, "{}", c),
+            Tkn::Symbol(c) => write!(f, "{}", c),
+            Tkn::Newline => write!(f, "\\n"),
+        }
+    }
 }
