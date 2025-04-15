@@ -117,6 +117,7 @@ where
                 .or(inline.map(|e| *e))
         });
 
+        
         complex
             .then_ignore(
                 stmt_term
@@ -124,8 +125,8 @@ where
                     .to(())
                     .or(end().rewind().labelled("EOF").to(())),
             )
-            .padded_by(stmt_term.clone().repeated().or_not())
-            .map(Box::new)
+        .padded_by(stmt_term.repeated().or_not())
+        .map(Box::new)
     });
 
     complex_term.repeated().collect::<Vec<_>>()

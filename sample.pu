@@ -1,6 +1,6 @@
 // --- Variable Declarations ---
-let five = 5;
-let eight = 8;
+let five = 5
+let eight = 8
 let ten = 10;
 
 // --- Function Definitions ---
@@ -47,14 +47,11 @@ if (five > 0) {
 // --- Else-If Chain ---
 // Testing multiple branches
 if (five == 1) {
-    result = 10;
+    result = 10
 } else if (five == 5) {
-    result = 20;
+    result = 20
 } else {
-    result = 30;
-    result = 30;
-    result = 30;
-    result = 30;
+    result = 30
 }
 
 // --- Arithmetic Expressions ---

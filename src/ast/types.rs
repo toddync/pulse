@@ -11,7 +11,7 @@ pub type BSE<'a> = Box<Spanned<Expr<'a>>>;
 pub enum Value<'a> {
     Undefined,
     Num(f64),
-    Str(&'a str),
+    Str(String),
     Vec(Vec<BSE<'a>>),
     Obj(HashMap<&'a str, BSE<'a>>),
 }
@@ -66,6 +66,8 @@ pub enum Expr<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Tkn<'a> {
     Number(f64),
+    Str(String),
+
     Identifier(&'a str),
     Delimiter(char),
     Keyword(&'a str),
@@ -77,6 +79,7 @@ impl fmt::Display for Tkn<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Tkn::Number(n) => write!(f, "{}", n),
+            Tkn::Str(n) => write!(f, "{}", n),
             Tkn::Identifier(c) => write!(f, "{}", c),
             Tkn::Delimiter(c) => write!(f, "{}", c),
             Tkn::Keyword(c) => write!(f, "{}", c),

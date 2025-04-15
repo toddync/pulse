@@ -16,12 +16,55 @@ pub fn lex<'a>() -> impl Parser<'a, &'a str, Vec<Spanned<Tkn<'a>>>, extra::Err<R
     ))
     .map(Tkn::Keyword);
 
-    let number = text::int(10).map(|s: &str| Tkn::Number(s.parse().unwrap()));
+    let digits = text::digits(10).to_slice();
+            
+    let frac = just('.').then(digits);
 
+    let number = just('-')
+            .or_not()
+            .then(text::int(10))
+            .then(frac.or_not())
+            .to_slice()
+            .map(|s: &str| s.parse().unwrap())
+            .map(Tkn::Number);
+
+        /* let escape = just("\\")
+            .then(choice((
+                just("\\"),
+                just("/"),
+                just("\""),
+                just("b").to("\x08"),
+                just("f").to("\x0C"),
+                just("n").to("\n"),
+                just("r").to("\r"),
+                just("t").to("\t"),
+                just("u").ignore_then(text::digits(16).exactly(4).to_slice().validate(
+                    |digits, e, emitter| {
+                        format!("{}",
+                        char::from_u32(u32::from_str_radix(digits, 16).unwrap()).unwrap_or_else(
+                            || {
+                                emitter.emit(Default::default());
+                                '\u{FFFD}' // unicode replacement character
+                            },
+                        )
+                        ).as_str()
+                    },
+                )),
+            )))
+            .ignored(); */
+
+        let string = just("\"").ignore_then(
+            any()
+                .and_is(just("\"").not())
+                .repeated()
+                .collect()
+        ).then_ignore(just("\""))
+        .map(Tkn::Str);
+    
     let identifier = text::ascii::ident()
         .and_is(keyword.not())
-        .map(Tkn::Identifier);
-
+    .map(Tkn::Identifier);
+    
     let math_sym = choice((
         just("++"),
         just("--"),
@@ -77,6 +120,7 @@ pub fn lex<'a>() -> impl Parser<'a, &'a str, Vec<Spanned<Tkn<'a>>>, extra::Err<R
 
     newline
         .or(number)
+        .or(string)
         .or(keyword)
         .or(logic_sym)
         .or(math_sym)

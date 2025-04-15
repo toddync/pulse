@@ -14,7 +14,10 @@ where
     let ident = select! { Tkn::Identifier(ident) => ident }.labelled("identifier");
 
     recursive(|inline| {
-        let int = select! { Tkn::Number(f) => Value::Num(f) }.labelled("Number");
+        let int = select! { 
+            Tkn::Number(f) => Value::Num(f), 
+            Tkn::Str(f) => Value::Str(f) 
+        }.labelled("Number");
 
         let val = int.map(Expr::Val);
 
@@ -43,11 +46,11 @@ where
             .foldr_with(at.clone(), |op, rhs, e| {
                 Box::new((Expr::UnOp(op, rhs), e.span()))
             })
-            /* .recover_with(via_parser(
+            .recover_with(via_parser(
                 any()
-                    .and_is(choice((sym("*"), sym("/"))).not())
+                    .filter(|tok| !matches!(tok, Tkn::Keyword(_) | Tkn::Delimiter(_) | Tkn::Identifier(_) | Tkn::Number(_) | Tkn::Symbol(";")))
                     .map_with(|_, e| Box::new((Expr::Error, e.span()))),
-            )) */;
+            ));
 
         let op = sym("*").to(Op::Mul).or(sym("/").to(Op::Div));
         let product = unary
@@ -63,25 +66,39 @@ where
                 Box::new((Expr::BnOp(a, op, b), e.span()))
             });
 
-        let op = sym("==")
-            .to(Op::Eq)
-            .or(sym("!=").to(Op::Neq))
-            .or(sym(">=").to(Op::Gte))
-            .or(sym(">=").to(Op::Gte))
-            .or(sym(">").to(Op::Gt))
-            .or(sym("<").to(Op::Lt));
+        let op = choice((
+            sym("==").to(Op::Eq),
+            sym("!=").to(Op::Neq),
+            sym(">=").to(Op::Gte),
+            sym(">=").to(Op::Gte),
+            sym(">").to(Op::Gt),
+            sym("<").to(Op::Lt)
+        )).recover_with(via_parser(
+            any()
+                .and_is(just(Tkn::Symbol(";")).not())
+                .and_is(just(Tkn::Symbol(",")).not())
+                .filter(|tok| !matches!(tok, Tkn::Keyword(_) | Tkn::Delimiter(_) | Tkn::Identifier(_) ))
+    
+                .map(|_| Op::Error),
+        ));
 
-        let compare = sum
-            .clone()
-            .foldl_with(op.then(sum).repeated(), |a, (op, b), e| {
-                Box::new((Expr::BnOp(a, op, b), e.span()))
-            })
+        let compare = choice((
+            sum.clone()
+                .foldl_with(op.then(sum).repeated(), |a, (op, b), e| {
+                    Box::new((Expr::BnOp(a, op, b), e.span()))
+                }),
+                at.clone()
+            ))
             .recover_with(via_parser(nested_delimiters(
-                del_('('),
-                del_(')'),
+                del_('('), del_(')'),
                 [(del_('['), del_(']')), (del_('{'), del_('}'))],
                 |span| Box::new((Expr::Error, span)),
-            )));
+            )))
+            .recover_with(via_parser(
+                any()
+                    .filter(|tok| !matches!(tok, Tkn::Keyword(_) | Tkn::Delimiter(_)))
+                    .map_with(|_, e| Box::new((Expr::Error, e.span()))),
+            ));
 
         compare.labelled("expression")
     })
