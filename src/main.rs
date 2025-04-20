@@ -1,71 +1,42 @@
-use ariadne::{Color, Label, Report, ReportKind, sources};
-use ast::{lex::lex, parser};
+use ariadne::{sources, Color, Label, Report, ReportKind};
 use chumsky::prelude::*;
 
 use std::{
-    collections::HashSet,
     env, fs,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use ast::{lex::lex, parse};
 mod ast;
+pub mod types;
 
 fn main() {
     let filename = env::args().nth(1).expect("Expected file argument");
-    let src = fs::read_to_string(&filename).unwrap();
-    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    let source = fs::read_to_string(&filename).unwrap();
+    let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
 
-    let (tokens, errs) = lex().parse(&src).into_output_errors();
+    let (tokens, lex_errs) = lex().parse(&source).into_output_errors();
+    if tokens.is_none() {
+        show_errors(lex_errs, filename, &source);
+        return;
+    }
 
-    let parse_errs = if let Some(tokens) = &tokens {
-        let (_ast, parse_errs) = parser()
-            .map_with(|ast, e| (ast, e.span()))
-            .parse(
-                tokens
-                    .as_slice()
-                    .map((src.len()..src.len()).into(), |(t, s)| (t, s)),
-            )
-            .into_output_errors();
+    let tokens = tokens.unwrap();
+    let (ast, parse_errs) = parse(&tokens, &source);
 
-        // if let Some((funcs, file_span)) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
-        //     if let Some(main) = funcs.get("main") {
-        //         if !main.args.is_empty() {
-        //             errs.push(Rich::custom(
-        //                 main.span,
-        //                 "The main function cannot have arguments".to_string(),
-        //             ))
-        //         } else {
-        //             match eval_expr(&main.body, &funcs, &mut Vec::new()) {
-        //                 Ok(val) => println!("Return value: {}", val),
-        //                 Err(e) => errs.push(Rich::custom(e.span, e.msg)),
-        //             }
-        //         }
-        //     } else {
-        //         errs.push(Rich::custom(
-        //             file_span,
-        //             "Programs need a main function but none was found".to_string(),
-        //         ));
-        //     }
-        // }
+    let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap() - start_time;
 
-        parse_errs
-    } else {
-        Vec::new()
-    };
+    show_errors(parse_errs, filename, &source);
+    println!("{:#?}", ast);
+    println!("time: {:?}", time);
+}
 
-    let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap() - start;
-
-    let mut seen = HashSet::new();
-
+fn show_errors<'a, T>(errs: Vec<Rich<'a, T>>, filename: String, src: &String)
+where
+    T: ToString + Clone,
+{
     errs.into_iter()
         .map(|e| e.map_token(|c| c.to_string()))
-        .chain(
-            parse_errs
-                .into_iter()
-                .map(|e| e.map_token(|tok| tok.to_string())),
-        )
-        // Filter out duplicates based on the error's string representation.
-        .filter(|e| seen.insert((e.to_string(), e.span().clone())))
         .for_each(|e| {
             Report::build(ReportKind::Error, (filename.clone(), e.span().into_range()))
                 .with_message(e.to_string())
@@ -82,7 +53,5 @@ fn main() {
                 .finish()
                 .print(sources([(filename.clone(), src.clone())]))
                 .unwrap()
-        });
-
-    println!("time: {:?}", time);
+        })
 }

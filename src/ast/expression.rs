@@ -1,7 +1,7 @@
-use super::types::{Expr, Op, Span, Spanned, Tkn, Value};
+use super::super::types::{Expr, Op, Span, Spanned, Tkn, Value};
 use chumsky::{input::ValueInput, prelude::*};
 
-pub fn inline<'a, I>()
+pub fn expression<'a, I>()
 -> impl Parser<'a, I, Box<Spanned<Expr<'a>>>, extra::Err<Rich<'a, Tkn<'a>, Span>>> + Clone
 where
     I: ValueInput<'a, Token = Tkn<'a>, Span = Span>,

@@ -1,6 +1,5 @@
+use super::super::types::{Span, Spanned, Tkn};
 use chumsky::prelude::*;
-
-use super::types::{Span, Spanned, Tkn};
 
 pub fn lex<'a>() -> impl Parser<'a, &'a str, Vec<Spanned<Tkn<'a>>>, extra::Err<Rich<'a, char, Span>>>
 {
