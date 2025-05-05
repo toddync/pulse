@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 ariadne = "0.5.1"
 chumsky = "0.10.1"
+ordered-float = "5.0.0"
 
 [profile.dev]
 incremental = true

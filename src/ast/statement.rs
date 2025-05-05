@@ -1,6 +1,7 @@
-use super::super::types::{Expr, Span, Spanned, Tkn, Value};
-use chumsky::{input::ValueInput, prelude::*};
+use super::super::types::{Expr, Key, Span, Spanned, Tkn, Value};
 use super::expression::expression;
+use chumsky::{input::ValueInput, prelude::*};
+use ordered_float::OrderedFloat as Float;
 
 pub fn statement<'a, I>()
 -> impl Parser<'a, I, Vec<Box<Spanned<Expr<'a>>>>, extra::Err<Rich<'a, Tkn<'a>, Span>>> + Clone
@@ -17,7 +18,7 @@ where
         .labelled("';'")
         .or(just(Tkn::Newline).labelled("'\\n'"));
 
-    let expression = expression();
+    let nl = just(Tkn::Newline).or_not();
 
     let complex_term = recursive(|complex_term| {
         let complex = recursive(|complex| {
@@ -38,6 +39,33 @@ where
                 .delimited_by(del('{'), del('}'))
                 .map_with(|v, e| (Expr::Block(v), e.span()))
                 .recover_with(via_parser(block_recovery));
+
+            let primitive = select! {
+            Tkn::Number(f) => Value::Num(f),
+            Tkn::Str(f) => Value::Str(f)
+            };
+
+            let object = primitive
+                .clone()
+                .map(|v| match v {
+                    Value::Num(a) => Key::Num(Float(a)),
+                    Value::Str(a) => Key::Str(a),
+                    _ => Key::Str("".to_string()),
+                })
+                .padded_by(nl.clone())
+                .then_ignore(sym(":"))
+                .padded_by(nl.clone())
+                .then(complex.clone())
+                .padded_by(nl.clone())
+                .separated_by(sym(",").padded_by(nl.clone()))
+                .allow_trailing()
+                .collect()
+                .delimited_by(del('{').padded_by(nl.clone()), del('}'))
+                .map(Value::Obj)
+                .map(Expr::Val)
+                .map_with(|expr, e| Box::new((expr, e.span())));
+
+            let expression = expression(object.clone());
 
             let r#let = kw("let")
                 .ignore_then(ident)
@@ -63,35 +91,41 @@ where
                         .delimited_by(del('('), del(')')),
                 )
                 .then(choice((
-                    sym("=")
-                        .ignore_then(expression.clone().map_with(|s, e| (Expr::Return(s), e.span()))),
+                    sym("=").ignore_then(
+                        expression
+                            .clone()
+                            .map_with(|s, e| (Expr::Return(s), e.span())),
+                    ),
                     block.clone(),
                 )))
                 .map(|((name, args), body)| Expr::Fn(name, args, Box::new(body)));
 
-            let r#return = kw("return").ignore_then(expression.clone()).map(Expr::Return);
+            let r#return = kw("return")
+                .ignore_then(expression.clone())
+                .map(Expr::Return);
 
             let r#if = kw("if")
                 .ignore_then(expression.clone())
                 .then_ignore(stmt_term.clone().or_not())
-                .then(choice((complex.clone(), block.clone())))
+                .then(choice((complex.clone(), block.clone().map(Box::new))))
                 .then(
-                    (kw("else")
-                        .ignore_then(choice((complex.clone(), block.clone())).or_not())
-                        .then_ignore(stmt_term.clone().or_not()))
+                    (
+                        kw("else").ignore_then(
+                            choice((complex.clone(), block.clone().map(Box::new))).or_not(),
+                        )
+                        //.then_ignore(stmt_term.clone().or_not())
+                    )
                     .or_not(),
                 )
                 .map_with(|((condition, r#if), r#else), e| {
                     (
                         Expr::If(
                             condition,
-                            Box::new(r#if),
-                            Box::new(
-                                (r#else.unwrap_or_else(|| {
-                                    Some((Expr::Val(Value::Undefined), e.span()))
-                                }))
-                                .unwrap_or_else(|| (Expr::Val(Value::Undefined), e.span())),
-                            ),
+                            r#if,
+                            (r#else.unwrap_or_else(|| {
+                                Some(Box::new((Expr::Val(Value::Undefined), e.span())))
+                            }))
+                            .unwrap_or_else(|| Box::new((Expr::Val(Value::Undefined), e.span()))),
                         ),
                         e.span(),
                     )
@@ -99,8 +133,8 @@ where
 
             let r#while = kw("while")
                 .ignore_then(expression.clone())
-                .then(choice((complex.clone(), block.clone())))
-                .map(|(condition, body)| Expr::While(condition, Box::new(body)));
+                .then(choice((complex.clone(), block.clone().map(Box::new))))
+                .map(|(condition, body)| Expr::While(condition, body));
 
             assign
                 .or(r#let)
@@ -109,10 +143,10 @@ where
                 .or(r#while)
                 .map_with(|expr, e| (expr, e.span()))
                 .or(r#if)
-                .or(expression.map(|e| *e))
+                .map(Box::new)
+                .or(expression.clone())
         });
 
-        
         complex
             .then_ignore(
                 stmt_term
@@ -120,8 +154,7 @@ where
                     .to(())
                     .or(end().rewind().labelled("EOF").to(())),
             )
-        .padded_by(stmt_term.repeated().or_not())
-        .map(Box::new)
+            .padded_by(stmt_term.repeated().or_not())
     });
 
     complex_term.repeated().collect::<Vec<_>>()
