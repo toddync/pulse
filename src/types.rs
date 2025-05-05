@@ -1,304 +1,121 @@
-#![allow(unused)]
-#[derive(Debug)]
-pub enum Value {
-    Number(i64),
-    Float(f64),
-    String(String),
-    Bool(bool),
-    // List(Vec<Value>),
-    // Map(HashMap<String, Value>),
+#![allow(warnings)]
+use chumsky::span::SimpleSpan;
+use core::fmt;
+use ordered_float::OrderedFloat;
+use std::collections::HashMap;
+
+pub type Span = SimpleSpan;
+pub type Spanned<T> = (T, Span);
+pub type BSE<'a> = Box<Spanned<Expr<'a>>>;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Key {
+    Str(String),
+    Num(OrderedFloat<f64>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value<'a> {
     Undefined,
-}
-
-impl Value {
-    pub fn as_int(&self) -> Option<i64> {
-        if let Value::Number(i) = self {
-            Some(*i)
-        } else if let Value::Float(i) = self {
-            Some(*i as i64)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_flt(&self) -> Option<f64> {
-        if let Value::Number(i) = self {
-            Some(*i as f64)
-        } else if let Value::Float(i) = self {
-            Some(*i)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_bool(&self) -> bool {
-        match self {
-            Value::Number(a) => self.as_int().unwrap() != 0,
-            Value::Float(a) => {
-                self.as_flt().unwrap() > f64::from(0) || self.as_flt().unwrap() < f64::from(0)
-            }
-            Value::Bool(a) => a == &true,
-            Value::String(a) => !a.is_empty(),
-            _ => false,
-        }
-    }
-
-    pub fn as_str(&self) -> String {
-        match self {
-            Value::Number(a) => format!("{}", a),
-            Value::Float(a) => format!("{}", a),
-            Value::Bool(a) => format!("{}", a),
-            Value::String(a) => a.to_string(),
-            _ => "".to_string(),
-        }
-    }
-
-    pub fn add(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a + b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 + b),
-            (Value::Float(a), Value::Number(_)) => Value::Float(a + other.as_flt().unwrap()),
-            (Value::String(a), Value::String(b)) => Value::String(a.to_owned() + b),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn sub(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a - b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a - b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 - b),
-            (Value::Float(a), Value::Number(_)) => Value::Float(a - other.as_flt().unwrap()),
-            // (Value::String(a), Value::String(b)) => Value::String(a - b),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn mul(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a * b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a * b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(a.to_owned() as f64 * b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a * other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn div(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a / b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a / b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 / b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a / other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn modu(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a % b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a % b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 % b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a % other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn gt(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(*a > other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(*a > other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool(*a as f64 > other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(*a > other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn lt(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(*a < other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(*a < other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => {
-                Value::Bool((*a as f64) < other.as_flt().unwrap())
-            }
-            (Value::Float(a), Value::Number(b)) => Value::Bool(*a < other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn eq(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(*a == other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(*a == other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => {
-                Value::Bool(*a as f64 == other.as_flt().unwrap())
-            }
-            (Value::Float(a), Value::Number(b)) => Value::Bool(*a == other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn dif(&self, other: &Value) -> Value {
-        Value::Bool(self.eq(other).not())
-    }
-
-    pub fn not(self) -> bool {
-        !self.as_bool()
-    }
-
-    pub fn and(&self, other: &Value) -> Value {
-        match self.as_bool() {
-            true => Value::Bool(other.as_bool()),
-            false => Value::Bool(false),
-        }
-    }
-}
-
-pub static VALUE: &str = r#"#![allow(warnings)]
-#[derive(Debug, Clone)]
-pub enum Value {
-    Number(i64),
-    Float(f64),
-    String(String),
+    Num(f64),
+    Str(String),
     Bool(bool),
-    Undefined,
+    Vec(Vec<BSE<'a>>),
+    Obj(HashMap<Key, BSE<'a>>),
+    Fn(Vec<&'a str>, BSE<'a>),
 }
 
-impl Value {
-    pub fn as_int(&self) -> Option<i64> {
-        if let Value::Number(i) = self {
-            Some(*i)
-        } else if let Value::Float(i) = self {
-            Some(*i as i64)
-        } else {
-            None
-        }
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub enum Op {
+    Error,
 
-    pub fn as_flt(&self) -> Option<f64> {
-        if let Value::Number(i) = self {
-            Some(*i as f64)
-        } else if let Value::Float(i) = self {
-            Some(*i)
-        } else {
-            None
-        }
-    }
+    Not,
+    Neg,
 
-    pub fn as_bool(&self) -> bool {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+
+    And,
+    Or,
+
+    Eq,
+    Neq,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expr<'a> {
+    Error,
+    Comment(String),
+    Nl,
+    Var(&'a str),
+    ReservedVar(&'a str),
+
+    Val(Value<'a>),
+
+    UnOp(Op, BSE<'a>),
+    BnOp(BSE<'a>, Op, BSE<'a>),
+
+    Let(&'a str, BSE<'a>),
+    Assign(&'a str, BSE<'a>),
+
+    Block(Vec<BSE<'a>>),
+
+    Fn(&'a str, Vec<&'a str>, BSE<'a>),
+    Return(BSE<'a>),
+    Call(BSE<'a>, Vec<BSE<'a>>),
+
+    ReservedCall(&'a str, Vec<BSE<'a>>),
+
+    If(BSE<'a>, BSE<'a>, BSE<'a>),
+
+    While(BSE<'a>, BSE<'a>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Tkn<'a> {
+    Number(f64),
+    Str(String),
+    Bool(bool),
+
+    Identifier(&'a str),
+    Delimiter(char),
+    Keyword(&'a str),
+    Symbol(&'a str),
+    Newline,
+}
+
+impl fmt::Display for Tkn<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Number(a) => self.as_int().unwrap() != 0,
-            Value::Float(a) => self.as_flt().unwrap() > f64::from(0) || self.as_flt().unwrap() < f64::from(0),
-            Value::Bool(a)=> a == &true,
-            Value::String(a)=> a.len() > 0,
-            _ => false,
+            Tkn::Number(n) => write!(f, "{}", n),
+            Tkn::Bool(n) => write!(f, "{}", n),
+            Tkn::Str(n) => write!(f, "{}", n),
+            Tkn::Identifier(c) => write!(f, "{}", c),
+            Tkn::Delimiter(c) => write!(f, "{}", c),
+            Tkn::Keyword(c) => write!(f, "{}", c),
+            Tkn::Symbol(c) => write!(f, "{}", c),
+            Tkn::Newline => write!(f, "\\n"),
         }
     }
+}
 
-    pub fn as_str(&self) -> String {
+impl fmt::Display for Value<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Number(a) => format!("{}", a),
-            Value::Float(a) => format!("{}", a),
-            Value::Bool(a)=> format!("{}", a),
-            Value::String(a)=> format!("{}", a),
-            _ => format!(""),
+            Value::Num(x) => write!(f, "{}", x),
+            Value::Str(x) => write!(f, "{}", x),
+            Value::Bool(x) => write!(f, "{}", x),
+            Value::Vec(_) => write!(f, ""),
+            Value::Obj(_) => write!(f, ""),
+            Value::Undefined => write!(f, "undefined"),
+            Value::Fn(_, _) => write!(f, "(Function () => {{}})"),
         }
     }
-
-    pub fn add(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a + b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 + b),
-            (Value::Float(a), Value::Number(_)) => Value::Float(a + other.as_flt().unwrap()),
-            (Value::String(a), Value::String(b)) => Value::String(a.to_owned() + b),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn sub(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a - b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a - b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 - b),
-            (Value::Float(a), Value::Number(_)) => Value::Float(a - other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn mul(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a * b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a * b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(a.to_owned() as f64 * b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a * other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn div(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a / b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a / b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 / b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a / other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn modu(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a % b),
-            (Value::Float(a), Value::Float(b)) => Value::Float(a % b),
-            (Value::Number(a), Value::Float(b)) => Value::Float(*a as f64 % b),
-            (Value::Float(a), Value::Number(b)) => Value::Float(a % other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn gt(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() > other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() > other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool(a.to_owned() as f64 > other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() > other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn lt(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() < other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() < other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool((a.to_owned() as f64) < other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() < other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn eq(&self, other: &Value) -> Value {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Value::Bool(a.to_owned() == other.as_int().unwrap()),
-            (Value::Float(a), Value::Float(b)) => Value::Bool(a.to_owned() == other.as_flt().unwrap()),
-            (Value::Number(a), Value::Float(b)) => Value::Bool(a.to_owned() as f64 == other.as_flt().unwrap()),
-            (Value::Float(a), Value::Number(b)) => Value::Bool(a.to_owned() == other.as_flt().unwrap()),
-            _ => Value::Undefined,
-        }
-    }
-
-    pub fn dif(&self, other: &Value) -> Value {
-        Value::Bool(self.eq(other).not())
-    }
-
-    pub fn not(self) -> bool {
-        !self.as_bool()
-    }
-
-    pub fn and(&self, other: &Value) -> Value {
-        match self.as_bool() {
-            true => Value::Bool(other.as_bool()),
-            false => Value::Bool(false)
-        }
-    }
-}"#;
+}

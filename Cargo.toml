@@ -1,8 +1,12 @@
 [package]
 name = "pulse"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.23", features = ["derive"] }
-regex = "1.11.1"
+ariadne = "0.5.1"
+chumsky = "0.10.1"
+ordered-float = "5.0.0"
+
+[profile.dev]
+incremental = true

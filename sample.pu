@@ -1,0 +1,160 @@
+// ======================================
+//  Language Showcase
+// ======================================
+
+// --- Variable Declarations ---
+let five    = 5
+let eight   = 8
+let ten     = 10
+let message = "=== Demo ==="
+
+// Print a header
+print(message)
+
+// --- Function Definitions ---
+
+// Expression‑bodied: add two numbers
+fn add(x, y) = x + y;
+
+// Block‑bodied: multiply two numbers
+fn multiply(x, y) {
+    return x * y;
+}
+
+// Compute square of a number
+fn square(x) {
+    let result = x * x;
+    return result;
+}
+
+// Compute factorial using a loop
+fn factorial(n) {
+    let result = 1;
+    let counter = n;
+    while (counter > 1) {
+        result = result * counter;
+        counter = counter - 1;
+    }
+    return result;
+}
+
+// Generate Fibonacci sequence up to n terms
+fn fibonacci(n) {
+    let a = 0;
+    let b = 1;
+    let i = 0;
+    // Print first n Fibonacci numbers
+    while (i < n) {
+        print("fib[", i, "] =", a);
+        let temp = a;
+        a = b;
+        b = temp + b;
+        i = i + 1;
+    }
+}
+
+// Check if a number is prime
+fn isPrime(n) {
+    if (n <= 1) {
+        return false;
+    }
+    let i = 2;
+    while (i * i <= n) {
+        if (n % i == 0) {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+// Print multiplication table from 1 to size, cell‑by‑cell
+fn multiplicationTable(size) {
+    let row = 1;
+    while (row <= 10) {
+        let col = 1;
+        let line = "";                 // accumulate this row here
+        while (col <= size) {
+            line = line + row + "*" + col + "=" + row * col + " ";
+            col = col + 1;
+            }
+        row = row + 1;
+        print(line);
+    }
+}
+
+// ======================================
+//  Run & Print Results
+// ======================================
+
+// Basic arithmetic
+let sum1       = add(5, 3);
+let product1   = multiply(2, 4);
+let squared    = square(4);
+let negative   = -five;
+let arithmetic = 5 + 3 * 2 - 4 / 2;
+
+// Print basic results
+print("--- Basic Arithmetic & Functions ---");
+print("add(5,3)       =", sum1);         // 8
+print("multiply(2,4)  =", product1);     // 8
+print("square(4)      =", squared);      // 16
+print("negative five =", negative);      // -5
+print("arithmetic    =", arithmetic);    // 5 + (3*2) - (4/2) = 9
+
+// Factorials
+//print("--- Factorials ---");
+print("5! =", factorial(5));  // 120
+print("8! =", factorial(8));  // 40320
+
+// Fibonacci
+print("--- Fibonacci Sequence (first 10 terms) ---");
+fibonacci(10);
+
+// Prime checks
+//print("--- Prime Checking ---");
+//let testNums = [2, 3, 4, 16, 17, 19];
+//let idx = 0;
+//while (idx < 6) {
+//    let n = testNums[idx];
+//    if (isPrime(n)) {
+//        print(n, "is prime");
+//    } else {
+//        print(n, "is NOT prime");
+//    }
+//    idx = idx + 1;
+//}
+
+// Multiplication Table
+print("--- Multiplication Table 1..5 ---");
+multiplicationTable(5);
+
+// Complex conditional demonstration
+print("--- Conditional Demo ---");
+let result;
+if (five == 1) {
+    result = ten - five;
+} else if (five == 5) {
+    result = 20;
+} else {
+    result = add(five, eight);
+}
+print("Conditional result =", result);  // 20
+
+// Nested if
+print("--- Nested If Demo ---");
+if (five > 0) {
+    if (eight < 10) {
+        print("five > 0 AND eight < 10");
+    }
+}
+
+// Loop variants
+print("--- Loop Variants ---");
+let counter = 0;
+while (counter < 3) {
+    print("Counting up:", counter);
+    counter = add(counter, 1);
+}
+while (counter > 0) counter = counter - 1;
+print("Final counter (should be 0):", counter);

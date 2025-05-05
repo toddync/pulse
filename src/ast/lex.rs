@@ -1,113 +1,138 @@
-use regex::Regex;
+use super::super::types::{Span, Spanned, Tkn};
+use chumsky::prelude::*;
 
-use super::types::{Token, TokenKind};
+pub fn lex<'a>() -> impl Parser<'a, &'a str, Vec<Spanned<Tkn<'a>>>, extra::Err<Rich<'a, char, Span>>>
+{
+    let newline = text::newline().map(|_| Tkn::Newline);
 
-pub fn lexer(source: &str) -> Vec<Token> {
-    let pattern = r#"([a-zA-Z_]+[a-zA-Z0-9_@]*|\d+\.\d+|\d+|[,#\.&"'+\-*!/=%><();{}\s])"#;
-    let regex = Regex::new(pattern).expect("Failed to compile regex");
+    let keyword = choice((
+        just("let"),
+        just("fn"),
+        just("return"),
+        just("if"),
+        just("else"),
+        just("while"),
+    ))
+    .map(Tkn::Keyword);
 
-    let primitives: Vec<&str> = regex.find_iter(source).map(|m| m.as_str()).collect();
+    let boolean = choice((
+        just("true").map(|_| Tkn::Bool(true)),
+        just("false").map(|_| Tkn::Bool(false)),
+    ));
 
-    let mut tokens: Vec<Token> = vec![];
+    let digits = text::digits(10).to_slice();
 
-    let operators = "^/+*-%".to_string();
-    let delimiters = "{}[]()".to_string();
+    let frac = just('.').then(digits);
 
-    let mut i = 0;
-    while i < primitives.len() {
-        let mut token = primitives[i].to_string();
-        let mut kind = TokenKind::Identifier;
+    let number = just('-')
+        .or_not()
+        .then(text::int(10))
+        .then(frac.or_not())
+        .to_slice()
+        .map(|s: &str| s.parse().unwrap())
+        .map(Tkn::Number);
 
-        if token == "#" {
-            while i < primitives.len() && primitives[i] != "\n" {
-                i += 1
-            }
-            i -= 1;
-        } else if operators.contains(&token) {
-            if primitives[i + 1] == "=" {
-                token.push('=');
-                kind = TokenKind::OpAssign;
-                i += 1;
-            } else {
-                kind = TokenKind::Operator;
-            }
-        } else if delimiters.contains(&token) {
-            kind = TokenKind::Delimiter;
-        } else if token == "\"" {
-            kind = TokenKind::String;
-            i += 1;
-            while i < primitives.len() && primitives[i] != "\"" {
-                token.push_str(primitives[i]);
-                i += 1;
-            }
-            token.push_str(primitives[i]);
-        } else if token.parse::<i128>().is_ok() {
-            kind = TokenKind::Number
-        } else if token.parse::<f64>().is_ok() {
-            kind = TokenKind::Float
-        } else if token.to_lowercase() == "true" || token.to_lowercase() == "false" {
-            kind = TokenKind::Bool;
-        } else if token.to_lowercase() == "and" || token == "&" {
-            kind = TokenKind::And;
-        } else if token.to_lowercase() == "or" || token == "|" {
-            kind = TokenKind::Or;
-        } else if is_keyword(&token) {
-            kind = TokenKind::Keyword;
-        } else if token == "!" {
-            if i < primitives.len() - 1 && primitives[i + 1] == "=" {
-                token.push_str(primitives[i + 1]);
-                kind = TokenKind::OpAssign;
-                i += 1;
-            } else {
-                kind = TokenKind::Not;
-            }
-        } else if token == "," {
-            kind = TokenKind::Comma;
-        } else if token == "=" {
-            if i < primitives.len() - 1 && primitives[i + 1] == "=" {
-                token.push_str(primitives[i + 1]);
-                kind = TokenKind::Equal;
-                i += 1;
-            } else {
-                kind = TokenKind::Assign;
-            }
-        } else if token == ";" {
-            kind = TokenKind::Semicolon;
-        } else if token == "." {
-            if primitives[i + 1] == "." {
-                if primitives[i + 2] == "." {
-                    i += 2;
-                    token.push_str("..");
-                    kind = TokenKind::Spread
-                } else {
-                    i += 1;
-                    token.push('.');
-                    kind = TokenKind::Range
-                }
-            } else {
-                kind = TokenKind::Dot
-            }
-        } else if token == "\n" {
-            kind = TokenKind::Nl;
-        }
+    /* let escape = just("\\")
+    .then(choice((
+        just("\\"),
+        just("/"),
+        just("\""),
+                just("b").to("\x08"),
+                just("f").to("\x0C"),
+                just("n").to("\n"),
+                just("r").to("\r"),
+                just("t").to("\t"),
+                just("u").ignore_then(text::digits(16).exactly(4).to_slice().validate(
+                    |digits, e, emitter| {
+                        format!("{}",
+                        char::from_u32(u32::from_str_radix(digits, 16).unwrap()).unwrap_or_else(
+                            || {
+                                emitter.emit(Default::default());
+                                '\u{FFFD}' // unicode replacement character
+                            },
+                        )
+                        ).as_str()
+                    },
+                )),
+            )))
+            .ignored(); */
 
-        if token != " " && token != "#" {
-            tokens.push(Token { value: token, kind });
-        }
-        i += 1;
-    }
+    let string = just("\"")
+        .ignore_then(any().and_is(just("\"").not()).repeated().collect())
+        .then_ignore(just("\""))
+        .map(Tkn::Str);
 
-    tokens.push(Token {
-        value: "EOF".to_string(),
-        kind: TokenKind::Eof,
-    });
+    let identifier = text::ascii::ident()
+        .and_is(keyword.not())
+        .map(Tkn::Identifier);
 
-    tokens
-}
+    let math_sym = choice((
+        just("++"),
+        just("--"),
+        just("/"),
+        just("'"),
+        just("+"),
+        just("-"),
+        just("*"),
+    ))
+    .map(Tkn::Symbol);
 
-fn is_keyword(token: &str) -> bool {
-    matches!(
-        &*token.to_lowercase(),
-        "if" | "else" | "for" | "in" | "while" | "fn" | "return"
-    )
+    let logic_sym = choice((
+        just("<="),
+        just("<="),
+        just("=="),
+        just("!="),
+        just("/*"),
+        just("*/"),
+        just("//"),
+        just("\\"),
+        just("\""),
+        just("'"),
+        just("&"),
+        just("|"),
+        just("!"),
+        just(">"),
+        just("<"),
+        just("="),
+        just("%"),
+        just(","),
+        just("."),
+        just(":"),
+        just(";"),
+        just("#"),
+    ))
+    .map(Tkn::Symbol);
+
+    let delimiter = choice((
+        just('('),
+        just(')'),
+        just('['),
+        just(']'),
+        just('{'),
+        just('}'),
+    ))
+    .map(Tkn::Delimiter);
+
+    let comment = choice((
+        just("/*")
+            .then(any().and_is(just("*/").not()).repeated())
+            .then_ignore(just("*/")),
+        just("//").then(any().and_is(just('\n').not()).repeated()),
+    ));
+
+    newline
+        .or(number)
+        .or(string)
+        .or(boolean)
+        .or(keyword)
+        .or(logic_sym)
+        .or(math_sym)
+        .or(delimiter)
+        .or(identifier)
+        .padded_by(text::inline_whitespace())
+        .padded_by(comment.repeated())
+        .map_with(|tok, e| (tok, e.span()))
+        .repeated()
+        .collect()
+        .boxed()
 }
